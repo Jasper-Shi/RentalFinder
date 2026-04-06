@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.gitignore
+.vscode/
+.cursor/
+*.md
+migrations/
+.venv/
+.mypy_cache/
+.pytest_cache/
