@@ -40,14 +40,22 @@ class GmailSender:
         to_email: str,
         to_name: str,
         listings: list[dict[str, Any]],
+        subscription_name: str = "",
     ) -> tuple[bool, str | None]:
         """Send a batch of listings to one recipient.
 
         Returns (success, error_message_or_none).
         """
         try:
-            subject = f"{self._subject_prefix} {len(listings)} New Rental Listing(s)"
-            html_body = self._render_template(to_name, listings)
+            count = len(listings)
+            if subscription_name:
+                subject = (
+                    f"{self._subject_prefix} {count} New Listing(s) — {subscription_name}"
+                )
+            else:
+                subject = f"{self._subject_prefix} {count} New Rental Listing(s)"
+
+            html_body = self._render_template(to_name, listings, subscription_name)
 
             msg = MIMEMultipart("alternative")
             msg["Subject"] = subject
@@ -65,7 +73,7 @@ class GmailSender:
                 server.login(self._username, self._password)
                 server.sendmail(self._from_email, [to_email], msg.as_string())
 
-            logger.info("Email sent to %s (%d listings)", to_email, len(listings))
+            logger.info("Email sent to %s (%d listings)", to_email, count)
             return True, None
 
         except Exception as exc:
@@ -73,11 +81,15 @@ class GmailSender:
             return False, str(exc)
 
     def _render_template(
-        self, recipient_name: str, listings: list[dict[str, Any]]
+        self,
+        recipient_name: str,
+        listings: list[dict[str, Any]],
+        subscription_name: str = "",
     ) -> str:
         template = self._jinja_env.get_template("listings_email.html")
         return template.render(
             recipient_name=recipient_name,
             listings=listings,
             count=len(listings),
+            subscription_name=subscription_name,
         )

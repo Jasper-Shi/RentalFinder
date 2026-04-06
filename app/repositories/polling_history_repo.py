@@ -18,24 +18,25 @@ class PollingHistoryRepository:
         self._sb = supabase
 
     def start_run(
-        self, request_url: str, request_params: dict[str, Any]
+        self,
+        request_url: str,
+        request_params: dict[str, Any],
+        subscription_id: int | None = None,
     ) -> int:
         """Create a new polling_history row with status='running'. Returns its id."""
         now = datetime.now(timezone.utc).isoformat()
-        resp = (
-            self._sb.table(TABLE)
-            .insert(
-                {
-                    "started_at": now,
-                    "status": "running",
-                    "request_url": request_url,
-                    "request_params_snapshot": request_params,
-                }
-            )
-            .execute()
-        )
+        payload: dict[str, Any] = {
+            "started_at": now,
+            "status": "running",
+            "request_url": request_url,
+            "request_params_snapshot": request_params,
+        }
+        if subscription_id is not None:
+            payload["subscription_id"] = subscription_id
+
+        resp = self._sb.table(TABLE).insert(payload).execute()
         row_id: int = resp.data[0]["id"]
-        logger.info("Polling run started: id=%d", row_id)
+        logger.info("Polling run started: id=%d subscription=%s", row_id, subscription_id)
         return row_id
 
     def finish_run(

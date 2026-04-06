@@ -53,6 +53,24 @@ class ListingRepository:
         logger.info("Bulk upsert: %d record(s) written", inserted)
         return inserted
 
+    def get_db_ids_by_source_ids(self, source_ids: list[str]) -> list[int]:
+        """Given a list of source_listing_ids, return their DB primary key ids."""
+        if not source_ids:
+            return []
+
+        db_ids: list[int] = []
+        for i in range(0, len(source_ids), _CHUNK_SIZE):
+            chunk = source_ids[i : i + _CHUNK_SIZE]
+            resp = (
+                self._sb.table(TABLE)
+                .select("id")
+                .in_("source_listing_id", chunk)
+                .execute()
+            )
+            db_ids.extend(row["id"] for row in resp.data)
+
+        return db_ids
+
     def get_all_ids(self) -> list[dict[str, Any]]:
         """Return id + source_listing_id for all listings (for diagnostics)."""
         resp = self._sb.table(TABLE).select("id, source_listing_id").execute()

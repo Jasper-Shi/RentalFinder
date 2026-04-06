@@ -10,7 +10,7 @@ from app.config.settings import Settings, get_settings
 from app.email_sender.gmail_sender import GmailSender
 from app.repositories.listing_repo import ListingRepository
 from app.repositories.polling_history_repo import PollingHistoryRepository
-from app.repositories.recipient_repo import RecipientRepository
+from app.repositories.subscription_repo import SubscriptionRepository
 from app.scheduler.job_runner import JobRunner
 from app.services.email_service import EmailService
 from app.services.polling_service import PollingService
@@ -41,16 +41,18 @@ def run() -> None:
 
     # Repositories
     listing_repo = ListingRepository(supabase)
-    recipient_repo = RecipientRepository(supabase)
+    subscription_repo = SubscriptionRepository(supabase)
     history_repo = PollingHistoryRepository(supabase)
 
     # API client
     api_client = RentalApiClient(settings)
 
     # Services
-    polling_service = PollingService(api_client, listing_repo, history_repo)
+    polling_service = PollingService(
+        api_client, listing_repo, subscription_repo, history_repo
+    )
     gmail_sender = GmailSender(settings)
-    email_service = EmailService(settings, recipient_repo, gmail_sender)
+    email_service = EmailService(settings, subscription_repo, gmail_sender)
 
     # Scheduler
     runner = JobRunner(settings, polling_service, email_service)
