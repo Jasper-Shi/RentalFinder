@@ -29,21 +29,6 @@ _DEFAULT_API_HEADERS: dict[str, str] = {
     ),
 }
 
-_DEFAULT_API_QUERY_PARAMS: dict[str, str] = {
-    "boundaryBox": "43.73011028547862,-79.39059001147473,43.83019234938175,-79.31074182853408",
-    "floor": "[0,)",
-    "origin": "web",
-    "perPage": "150",
-    "priceRange": "[0,2100]",
-    "buildingTypes": "apartment",
-    "rentalTypes": "whole",
-    "includesWater": "1",
-    "independentKitchen": "1",
-    "independentBathroom": "1",
-    "isPersonalPost": "0",
-    "isVerified": "0",
-}
-
 
 class Settings(BaseSettings):
     """Central configuration loaded from environment variables / .env file."""
@@ -54,16 +39,15 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_key: str
 
-    # --- 51.ca API ---
+    # --- 51.ca API (global; per-subscription filters come from DB) ---
     api_base_url: str = "https://house.51.ca/api/v7/rental/listings"
-    api_query_params: dict[str, str] = _DEFAULT_API_QUERY_PARAMS
     api_headers: dict[str, str] = _DEFAULT_API_HEADERS
     api_timeout_seconds: int = 30
     api_max_retries: int = 3
 
     # --- Scheduler ---
     poll_interval_minutes: int = 60
-    email_interval_minutes: int = 120
+    email_check_interval_minutes: int = 5
 
     # --- Gmail / SMTP ---
     gmail_sender_email: str = ""
@@ -80,12 +64,12 @@ class Settings(BaseSettings):
     email_reply_to: str = ""
     email_enabled: bool = True
     email_send_timeout_seconds: int = 30
-    email_rate_limit_per_run: int = 5
+    email_rate_limit_per_run: int = 10
 
     # --- Logging ---
     log_level: str = "INFO"
 
-    @field_validator("api_query_params", "api_headers", mode="before")
+    @field_validator("api_headers", mode="before")
     @classmethod
     def _parse_json_string(cls, v: Any) -> dict[str, str]:
         if isinstance(v, str):

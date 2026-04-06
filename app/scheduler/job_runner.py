@@ -50,20 +50,24 @@ class JobRunner:
         email_job = _no_overlap(self._run_email)
 
         poll_mins = self._settings.poll_interval_minutes
-        email_mins = self._settings.email_interval_minutes
+        # Email check runs frequently; actual send timing is per-subscription
+        # based on next_email_at in the database.
+        email_check_mins = self._settings.email_check_interval_minutes
 
         schedule.every(poll_mins).minutes.do(poll_job)
-        schedule.every(email_mins).minutes.do(email_job)
+        schedule.every(email_check_mins).minutes.do(email_job)
 
         logger.info(
-            "Scheduler started: poll every %d min, email every %d min",
+            "Scheduler started: poll every %d min, email check every %d min",
             poll_mins,
-            email_mins,
+            email_check_mins,
         )
 
-        # Run the polling job immediately on startup, then enter the loop.
+        # Run both jobs immediately on startup.
         logger.info("Running initial poll on startup...")
         poll_job()
+        logger.info("Running initial email check on startup...")
+        email_job()
 
         while True:
             schedule.run_pending()
@@ -78,9 +82,9 @@ class JobRunner:
         logger.info("=== Polling job finished ===")
 
     def _run_email(self) -> None:
-        logger.info("=== Email job started ===")
+        logger.info("=== Email check started ===")
         try:
             self._email_service.run()
         except Exception:
             logger.exception("Unhandled error in email job")
-        logger.info("=== Email job finished ===")
+        logger.info("=== Email check finished ===")

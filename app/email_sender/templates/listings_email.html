@@ -23,6 +23,9 @@
 <div class="container">
   <div class="header">
     <h1>{{ count }} New Rental Listing{{ 's' if count != 1 else '' }}</h1>
+    {% if subscription_name %}
+    <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.85;">{{ subscription_name }}</p>
+    {% endif %}
   </div>
   <div class="content">
     <p>Hi {{ recipient_name }},</p>
