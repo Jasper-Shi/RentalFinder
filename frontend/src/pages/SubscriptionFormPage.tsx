@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import BoundingBoxMap from '../components/BoundingBoxMap';
 import type { ExtraFilters, Subscription } from '../types';
 
 const BUILDING_TYPE_OPTIONS = ['apartment', 'townhouse', 'semi-detached', 'detached'];
 const RENTAL_TYPE_OPTIONS = ['whole'];
+
+const DEFAULT_BOUNDING_BOX =
+  '43.640990267992834,-79.38644479872552,43.671784241717916,-79.38319149385921';
 
 const DEFAULT_EXTRA: ExtraFilters = {
   floor: '[0,)',
@@ -25,6 +29,7 @@ interface FormState {
   email_frequency_hours: number;
   price_min: number;
   price_max: number;
+  bounding_box: string;
   building_types: string;
   rental_types: string;
   parkingSpaces: string;
@@ -78,6 +83,7 @@ export default function SubscriptionFormPage() {
     email_frequency_hours: 2,
     price_min: 0,
     price_max: 2100,
+    bounding_box: DEFAULT_BOUNDING_BOX,
     building_types: 'apartment',
     rental_types: 'whole',
     parkingSpaces: '',
@@ -123,6 +129,7 @@ export default function SubscriptionFormPage() {
           email_frequency_hours: s.email_frequency_hours,
           price_min: Number(s.price_min),
           price_max: Number(s.price_max),
+          bounding_box: s.bounding_box || DEFAULT_BOUNDING_BOX,
           building_types: s.building_types,
           rental_types: s.rental_types,
           parkingSpaces: ef.parkingSpaces ?? '',
@@ -165,6 +172,7 @@ export default function SubscriptionFormPage() {
       email_frequency_hours: Math.max(1, form.email_frequency_hours),
       price_min: form.price_min,
       price_max: form.price_max,
+      bounding_box: form.bounding_box,
       building_types: form.building_types,
       rental_types: form.rental_types,
       extra_filters: extraFilters,
@@ -194,7 +202,7 @@ export default function SubscriptionFormPage() {
   }
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-2xl mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">
         {isEdit ? 'Edit Subscription' : 'New Subscription'}
       </h2>
@@ -267,6 +275,15 @@ export default function SubscriptionFormPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
+        </div>
+
+        {/* Bounding box (map) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Search Area</label>
+          <BoundingBoxMap
+            value={form.bounding_box}
+            onChange={(v) => set('bounding_box', v)}
+          />
         </div>
 
         {/* Building types */}
