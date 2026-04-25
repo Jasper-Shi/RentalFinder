@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import BoundingBoxMap from '../components/BoundingBoxMap';
+import MatchedListings from '../components/MatchedListings';
+import SlideOver from '../components/SlideOver';
 import type { ExtraFilters, Subscription } from '../types';
 
 const BUILDING_TYPE_OPTIONS = ['apartment', 'townhouse', 'semi-detached', 'detached'];
@@ -95,6 +97,7 @@ export default function SubscriptionFormPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [pageLoading, setPageLoading] = useState(isEdit);
+  const [matchesOpen, setMatchesOpen] = useState(false);
 
   useEffect(() => {
     if (!isEdit) {
@@ -203,9 +206,39 @@ export default function SubscriptionFormPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        {isEdit ? 'Edit Subscription' : 'New Subscription'}
-      </h2>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 truncate">
+          {isEdit ? form.name || 'Subscription' : 'New Subscription'}
+        </h2>
+        {isEdit && id && (
+          <button
+            type="button"
+            onClick={() => setMatchesOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg px-3 py-2 transition whitespace-nowrap"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            <span className="hidden sm:inline">View Matches</span>
+            <span className="sm:hidden">Matches</span>
+          </button>
+        )}
+      </div>
 
       {error && (
         <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
@@ -375,6 +408,16 @@ export default function SubscriptionFormPage() {
           </button>
         </div>
       </form>
+
+      {isEdit && id && (
+        <SlideOver
+          open={matchesOpen}
+          onClose={() => setMatchesOpen(false)}
+          title="Matched Listings"
+        >
+          <MatchedListings subscriptionId={Number(id)} />
+        </SlideOver>
+      )}
     </div>
   );
 }
