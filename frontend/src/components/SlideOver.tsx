@@ -31,7 +31,7 @@ export default function SlideOver({ open, onClose, title, children }: SlideOverP
 
   return (
     <div
-      className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`}
+      className={`fixed inset-0 z-[1100] ${open ? '' : 'pointer-events-none'}`}
       aria-hidden={!open}
     >
       {/* backdrop */}
