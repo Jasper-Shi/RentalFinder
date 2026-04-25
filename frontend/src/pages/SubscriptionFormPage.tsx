@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import BoundingBoxMap from '../components/BoundingBoxMap';
+import MatchedListings from '../components/MatchedListings';
 import type { ExtraFilters, Subscription } from '../types';
 
 const BUILDING_TYPE_OPTIONS = ['apartment', 'townhouse', 'semi-detached', 'detached'];
@@ -204,13 +205,26 @@ export default function SubscriptionFormPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        {isEdit ? 'Edit Subscription' : 'New Subscription'}
+        {isEdit ? form.name || 'Subscription' : 'New Subscription'}
       </h2>
 
       {error && (
         <div className="bg-red-50 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
           {error}
         </div>
+      )}
+
+      {isEdit && id && (
+        <section className="mb-8">
+          <h3 className="text-base font-semibold text-gray-900 mb-3">
+            Matched Listings
+          </h3>
+          <MatchedListings subscriptionId={Number(id)} />
+        </section>
+      )}
+
+      {isEdit && (
+        <h3 className="text-base font-semibold text-gray-900 mb-3">Settings</h3>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
