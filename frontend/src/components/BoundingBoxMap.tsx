@@ -81,7 +81,29 @@ function RectangleEditor({
       dragMode: true,
       removalMode: false,
     });
-    map.pm.setLang('en');
+    // Override the default toolbar tooltips and the shared "Finish" action label
+    // so each mode reads naturally for our use case. setLang supports custom
+    // language names but the TS types restrict to built-in locales, so we cast.
+    (map.pm.setLang as unknown as (
+      name: string,
+      lang: Record<string, unknown>,
+      fallback: string,
+    ) => void)(
+      'rentalfinder',
+      {
+        buttonTitles: {
+          drawRectButton: 'Draw new search area',
+          editButton: 'Resize search area',
+          dragButton: 'Move search area',
+        },
+        actions: {
+          finish: 'Done',
+          cancel: 'Cancel',
+          finishMode: 'Done',
+        },
+      },
+      'en',
+    );
 
     const wireRectangleEvents = (rect: L.Rectangle) => {
       const report = () => onChangeRef.current(boundsToBBoxString(rect.getBounds()));
