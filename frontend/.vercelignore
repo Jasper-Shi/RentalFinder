@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+!.env.example
+Dockerfile
+nginx.conf
+*.log
+.DS_Store
