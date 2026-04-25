@@ -1,5 +1,5 @@
 services:
-  rental-finder:
+  backend:
     build: .
     env_file: .env
     restart: unless-stopped
@@ -8,3 +8,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "3000:80"
+    restart: unless-stopped
