@@ -8,6 +8,7 @@ export default function HomePage() {
   const { publicUser } = useAuth();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!publicUser) {
@@ -26,6 +27,24 @@ export default function HomePage() {
         setLoading(false);
       });
   }, [publicUser]);
+
+  const handleDelete = async (s: Subscription) => {
+    const confirmed = window.confirm(
+      `Delete "${s.name}"? This will permanently remove the subscription and all its delivery history. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(s.id);
+    const { error } = await supabase.from('subscriptions').delete().eq('id', s.id);
+    if (error) {
+      console.error('Failed to delete subscription:', error);
+      alert(`Failed to delete subscription: ${error.message}`);
+      setDeletingId(null);
+      return;
+    }
+    setSubs((prev) => prev.filter((x) => x.id !== s.id));
+    setDeletingId(null);
+  };
 
   if (loading) {
     return <p className="text-gray-400 text-center mt-12">Loading subscriptions...</p>;
@@ -55,33 +74,47 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {subs.map((s) => (
-            <Link
-              key={s.id}
-              to={`/subscriptions/${s.id}`}
-              className="block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
+          {subs.map((s) => {
+            const isDeleting = deletingId === s.id;
+            return (
+              <div
+                key={s.id}
+                className="relative bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition"
+              >
+                <Link
+                  to={`/subscriptions/${s.id}`}
+                  className="block pr-28"
+                >
                   <h3 className="font-semibold text-gray-900">{s.name}</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     ${Number(s.price_min).toFixed(0)} – ${Number(s.price_max).toFixed(0)}
                     &nbsp;&middot;&nbsp;{s.building_types}
                     &nbsp;&middot;&nbsp;Every {s.email_frequency_hours}h
                   </p>
+                </Link>
+                <div className="absolute top-5 right-5 flex items-center gap-3">
+                  <span
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                      s.is_active
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {s.is_active ? 'Active' : 'Paused'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(s)}
+                    disabled={isDeleting}
+                    aria-label={`Delete subscription ${s.name}`}
+                    className="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
-                <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    s.is_active
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {s.is_active ? 'Active' : 'Paused'}
-                </span>
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
