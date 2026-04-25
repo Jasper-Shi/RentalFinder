@@ -81,9 +81,9 @@ function RectangleEditor({
       dragMode: true,
       removalMode: false,
     });
-    // Override the default toolbar tooltips and the shared "Finish" action label
-    // so each mode reads naturally for our use case. setLang supports custom
-    // language names but the TS types restrict to built-in locales, so we cast.
+    // Override the default toolbar button tooltips so each mode reads naturally.
+    // setLang supports custom language names but the TS types restrict to
+    // built-in locales, so we cast.
     (map.pm.setLang as unknown as (
       name: string,
       lang: Record<string, unknown>,
@@ -96,14 +96,41 @@ function RectangleEditor({
           editButton: 'Resize search area',
           dragButton: 'Move search area',
         },
-        actions: {
-          finish: 'Done',
-          cancel: 'Cancel',
-          finishMode: 'Done',
-        },
       },
       'en',
     );
+
+    // Per-mode "exit this mode" action button text. The built-in shared
+    // `actions.finish` would label all three modes the same, so we replace
+    // each control's actions with a custom one that has its own text and
+    // calls the matching disable function.
+    type ToolbarAction = { text: string; onClick: () => void; title?: string };
+    type ToolbarApi = {
+      changeActionsOfControl: (name: string, actions: ToolbarAction[]) => void;
+    };
+    const toolbar = map.pm.Toolbar as unknown as ToolbarApi;
+
+    toolbar.changeActionsOfControl('Rectangle', [
+      {
+        text: 'Done drawing',
+        title: 'Done drawing',
+        onClick: () => map.pm.disableDraw(),
+      },
+    ]);
+    toolbar.changeActionsOfControl('editMode', [
+      {
+        text: 'Done resizing',
+        title: 'Done resizing',
+        onClick: () => map.pm.disableGlobalEditMode(),
+      },
+    ]);
+    toolbar.changeActionsOfControl('dragMode', [
+      {
+        text: 'Done moving',
+        title: 'Done moving',
+        onClick: () => map.pm.disableGlobalDragMode(),
+      },
+    ]);
 
     const wireRectangleEvents = (rect: L.Rectangle) => {
       const report = () => onChangeRef.current(boundsToBBoxString(rect.getBounds()));
