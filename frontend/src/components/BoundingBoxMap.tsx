@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Rectangle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import '@geoman-io/leaflet-geoman-free';
+import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css';
 
 // Default Toronto box (matches the DB default for new subscriptions).
-const DEFAULT_BBOX = '43.640990267992834,-79.38644479872552,43.671784241717916,-79.38319149385921';
+const DEFAULT_BBOX =
+  '43.640990267992834,-79.38644479872552,43.671784241717916,-79.38319149385921';
 
 interface ParsedBBox {
   swLat: number;
@@ -21,7 +24,6 @@ function parseBBox(value: string | undefined | null): ParsedBBox {
   if (parts.some((n) => !Number.isFinite(n))) {
     return parseBBox(fallback);
   }
-  // Normalize: ensure first pair is the SW corner, second is NE.
   const [a, b, c, d] = parts;
   return {
     swLat: Math.min(a, c),
@@ -31,41 +33,97 @@ function parseBBox(value: string | undefined | null): ParsedBBox {
   };
 }
 
-function formatBBox(b: ParsedBBox): string {
-  return `${b.swLat},${b.swLng},${b.neLat},${b.neLng}`;
+function boundsToBBoxString(b: L.LatLngBounds): string {
+  return `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
 }
 
-/**
- * Listens to the Leaflet map's move/zoom events and reports the
- * current viewport bounds as a "lat_sw,lng_sw,lat_ne,lng_ne" string.
- */
-function ViewportTracker({ onChange }: { onChange: (value: string) => void }) {
-  const map = useMap();
-  const lastReported = useRef<string>('');
+const RECT_STYLE: L.PathOptions = {
+  color: '#2563eb',
+  weight: 2,
+  fillOpacity: 0.08,
+};
 
+/**
+ * Renders a single editable rectangle on the map and exposes
+ * draw/edit/remove controls via leaflet-geoman.
+ *
+ * - The rectangle defines the search bounding box.
+ * - Drag corners to resize, drag the whole shape to move it.
+ * - Use the "Draw Rectangle" toolbar button to replace it with a new one.
+ * - The map itself can be panned/zoomed independently — the rectangle stays put.
+ */
+function RectangleEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.Rectangle | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Wire up geoman controls and the initial rectangle once when the map mounts.
   useEffect(() => {
-    const report = () => {
-      const b = map.getBounds();
-      const next = formatBBox({
-        swLat: b.getSouth(),
-        swLng: b.getWest(),
-        neLat: b.getNorth(),
-        neLng: b.getEast(),
-      });
-      if (next !== lastReported.current) {
-        lastReported.current = next;
-        onChange(next);
+    map.pm.addControls({
+      position: 'topright',
+      drawCircle: false,
+      drawCircleMarker: false,
+      drawMarker: false,
+      drawPolyline: false,
+      drawPolygon: false,
+      drawText: false,
+      drawRectangle: true,
+      cutPolygon: false,
+      rotateMode: false,
+      editMode: true,
+      dragMode: true,
+      removalMode: false,
+    });
+    map.pm.setLang('en');
+
+    const wireRectangleEvents = (rect: L.Rectangle) => {
+      const report = () => onChangeRef.current(boundsToBBoxString(rect.getBounds()));
+      rect.on('pm:edit', report);
+      rect.on('pm:dragend', report);
+    };
+
+    const initial = parseBBox(value);
+    const rect = L.rectangle(
+      [
+        [initial.swLat, initial.swLng],
+        [initial.neLat, initial.neLng],
+      ],
+      RECT_STYLE,
+    ).addTo(map);
+    layerRef.current = rect;
+    wireRectangleEvents(rect);
+
+    // When user draws a NEW rectangle from the toolbar, replace the existing one.
+    const handleCreate = (e: { layer: L.Layer; shape: string }) => {
+      if (e.shape !== 'Rectangle') return;
+      if (layerRef.current) map.removeLayer(layerRef.current);
+      const newRect = e.layer as L.Rectangle;
+      newRect.setStyle(RECT_STYLE);
+      layerRef.current = newRect;
+      wireRectangleEvents(newRect);
+      onChangeRef.current(boundsToBBoxString(newRect.getBounds()));
+    };
+    map.on('pm:create', handleCreate);
+
+    return () => {
+      map.off('pm:create', handleCreate);
+      map.pm.removeControls();
+      if (layerRef.current) {
+        map.removeLayer(layerRef.current);
+        layerRef.current = null;
       }
     };
-    // Initial report once the map has settled.
-    map.whenReady(report);
-    map.on('moveend', report);
-    map.on('zoomend', report);
-    return () => {
-      map.off('moveend', report);
-      map.off('zoomend', report);
-    };
-  }, [map, onChange]);
+    // We deliberately ignore `value` changes after mount — the rectangle is
+    // the source of truth; we only seed it from the prop on first mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]);
 
   return null;
 }
@@ -77,6 +135,9 @@ interface BoundingBoxMapProps {
 
 export default function BoundingBoxMap({ value, onChange }: BoundingBoxMapProps) {
   const initial = useMemo(() => parseBBox(value), [value]);
+
+  // Centre the map on the initial rectangle, but with a bit of padding so the
+  // rectangle isn't flush with the edges of the viewport.
   const initialBounds = useMemo<L.LatLngBoundsExpression>(
     () => [
       [initial.swLat, initial.swLng],
@@ -85,20 +146,12 @@ export default function BoundingBoxMap({ value, onChange }: BoundingBoxMapProps)
     [initial],
   );
 
-  // Show a rectangle representing the saved value (kept in sync with `value`).
-  const currentBounds = useMemo<L.LatLngBoundsExpression>(() => {
-    const b = parseBBox(value);
-    return [
-      [b.swLat, b.swLng],
-      [b.neLat, b.neLng],
-    ];
-  }, [value]);
-
   return (
     <div>
-      <div className="h-72 w-full rounded-lg overflow-hidden border border-gray-300">
+      <div className="h-80 w-full rounded-lg overflow-hidden border border-gray-300">
         <MapContainer
           bounds={initialBounds}
+          boundsOptions={{ padding: [40, 40] }}
           scrollWheelZoom
           style={{ height: '100%', width: '100%' }}
         >
@@ -106,20 +159,13 @@ export default function BoundingBoxMap({ value, onChange }: BoundingBoxMapProps)
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <Rectangle
-            bounds={currentBounds}
-            pathOptions={{
-              color: '#2563eb',
-              weight: 2,
-              fillOpacity: 0.05,
-            }}
-          />
-          <ViewportTracker onChange={onChange} />
+          <RectangleEditor value={value} onChange={onChange} />
         </MapContainer>
       </div>
       <p className="mt-2 text-xs text-gray-500 break-all font-mono">{value}</p>
       <p className="mt-1 text-xs text-gray-400">
-        Pan and zoom — the visible area defines the search bounding box.
+        Drag the rectangle's corners to resize, or drag the whole shape to move
+        it. Use the rectangle tool in the top-right to draw a new area.
       </p>
     </div>
   );
